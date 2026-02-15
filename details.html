@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>需給詳細 - 日経先物・オプション分析</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: #f0f2f5; color: #333; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        /* メニューバー（行き来するためのリンク） */
+        nav { margin-bottom: 25px; border-bottom: 2px solid #4a90e2; padding-bottom: 10px; }
+        nav a { margin-right: 20px; text-decoration: none; color: #4a90e2; font-weight: bold; font-size: 1.1em; }
+        nav a:hover { color: #2c3e50; text-decoration: underline; }
+
+        h1 { color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        
+        /* テーブルデザイン */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+        th { background: #4a90e2; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+
+        .analysis-box h3 { color: #4a90e2; border-left: 5px solid #4a90e2; padding-left: 10px; margin-top: 30px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="index.html">🏠 TOP（市場概況）</a>
+            <a href="details.html">📊 需給詳細（先物・オプション）</a>
+        </nav>
+
+        <h1>先物・オプション需給詳細</h1>
+        
+        <div id="content">データを解析中...</div>
+
+        <div style="margin-top: 40px; text-align: center; font-size: 0.8em; color: gray;">
+            目標: 資産1億円〜5億円の構築
+        </div>
+    </div>
+
+    <script>
+        // Pythonが生成した details_info.html を読み込む
+        fetch('details_info.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('content').innerHTML = data;
+            })
+            .catch(err => {
+                document.getElementById('content').innerHTML = "データの読み込みに失敗しました。";
+            });
+    </script>
+</body>
+</html>
