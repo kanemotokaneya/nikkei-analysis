@@ -1,56 +1,38 @@
-import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
-import mplfinance as mpf
-import numpy as np
 import requests
 from bs4 import BeautifulSoup
 import io
+import numpy as np
 
-# --- 1. データの取得（YahooがダメならStooqで試行） ---
-def get_data():
-    symbols = ["^N225", "NKY.JP"] # Yahoo用とStooq用
-    for sym in symbols:
-        try:
-            print(f"Trying to download {sym}...")
-            if sym == "^N225":
-                data = yf.download(sym, period="1y", interval="1d")
-            else:
-                # Yahooがダメな場合のバックアップ（Stooq経由）
-                url = f"https://stooq.com/q/d/l/?s={sym}&i=d"
-                res = requests.get(url).content
-                data = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
-            
-            if not data.empty:
-                # 徹底洗浄
-                for col in ['Open', 'High', 'Low', 'Close']:
-                    data[col] = pd.to_numeric(data[col], errors='coerce')
-                return data.dropna().astype(float)
-        except:
-            continue
-    return pd.DataFrame()
+# --- 1. 日経平均株価を「株探」から直接取得 ---
+def get_nikkei_price():
+    try:
+        url = "https://kabutan.jp/stock/kabuexe?code=0000"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(url, headers=headers)
+        soup = BeautifulSoup(res.text, "html.parser")
+        
+        # 株価・前日比を抽出
+        price_text = soup.find("span", class_="kabuka").text.replace(",", "").replace("円", "")
+        change_text = soup.find("dd", class_="zenjitsu_henka").text.replace(",", "").replace("円", "")
+        return float(price_text), float(change_text)
+    except:
+        return 38000.0, 0.0 # 失敗時のダミー
 
-df = get_data()
+# --- 2. チャート用データをStooqのCSVから直接取得 ---
+def get_chart_data():
+    try:
+        # StooqのCSVダウンロードリンク（日経225）
+        url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
+        res = requests.get(url).content
+        df = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
+        return df.tail(100) # 直近100日分
+    except:
+        return pd.DataFrame()
 
-# 最新値の確定
-if not df.empty:
-    close_p = float(df['Close'].iloc[-1])
-    yesterday_p = float(df['Close'].iloc[-2])
-else:
-    # 最悪の事態のダミー
-    close_p, yesterday_p = 38000.0, 38000.0
-
-# 日経VI（取得失敗時は20.0固定）
-vi_value = 20.0
-try:
-    df_vi = yf.download("^JNIV", period="5d", interval="1d")
-    if not df_vi.empty:
-        vi_value = float(df_vi['Close'].dropna().iloc[-1])
-except:
-    pass
-
-# --- 2. 予測値幅の計算 ---
-daily_range = close_p * (vi_value / 100) / np.sqrt(250)
+close_p, change_p = get_nikkei_price()
+df = get_chart_data()
 
 # --- 3. JPXデータの抽出 ---
 oi = {'large_all': '-', 'large_mar': '-', 'mini_all': '-', 'mini_mar': '-', 'topix_all': '-', 'topix_mar': '-'}
@@ -71,32 +53,34 @@ try:
 except:
     pass
 
-# --- 4. チャート作成（移動平均線付き） ---
-try:
-    plot_df = df.tail(100).copy()
-    mc = mpf.make_marketcolors(up='red', down='blue', edge='inherit', wick='inherit')
-    s  = mpf.make_mpf_style(marketcolors=mc, gridstyle='--', y_on_right=False)
+# --- 4. チャート作成（ライブラリ依存を減らす） ---
+plt.figure(figsize=(12, 8))
+if not df.empty:
+    # 5日・25日移動平均を計算
+    ma5 = df['Close'].rolling(window=5).mean()
+    ma25 = df['Close'].rolling(window=25).mean()
     
-    mpf.plot(plot_df, type='candle', style=s, mav=(5, 25),
-             title="Nikkei 225 & MA", figsize=(12, 8), savefig='nikkei_chart.png')
-except:
-    plt.figure(figsize=(12, 8))
-    plt.plot(df['Close'].tail(50))
-    plt.savefig('nikkei_chart.png')
+    plt.plot(df.index, df['Close'], label='Close', color='#2c3e50', linewidth=2)
+    plt.plot(df.index, ma5, label='MA5', color='green', alpha=0.7)
+    plt.plot(df.index, ma25, label='MA25', color='orange', alpha=0.7)
+    plt.fill_between(df.index, df['Low'], df['High'], color='gray', alpha=0.1)
+    plt.title("Nikkei 225 Market Overview")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend()
+plt.savefig('nikkei_chart.png')
 
 # --- 5. HTML書き出し ---
 top_html = f"""
 <div class='analysis-box'>
-    <h2 style='font-size:2.5em; margin:0;'>{close_p:,.0f}円</h2>
-    <p>前日比: <span style='color:{"red" if close_p >= yesterday_p else "blue"}'>{close_p - yesterday_p:+.0f}円</span></p>
-    <p><b>日経VI:</b> {vi_value:.2f} | <b>予測値幅:</b> ±{daily_range:,.0f}円</p>
+    <h2 style='font-size:2.8em; margin:0;'>{close_p:,.0f}円</h2>
+    <p style='font-size:1.5em;'>前日比: <span style='color:{"red" if change_p >= 0 else "blue"}'>{change_p:+.0f}円</span></p>
 </div>
 """
 with open("info.html", "w", encoding="utf-8") as f: f.write(top_html)
 
 detail_html = f"""
 <div class='analysis-box'>
-    <h3>先物建玉</h3>
+    <h3>先物建玉状況</h3>
     <table border='1' style='width:100%; border-collapse:collapse; text-align:center;'>
         <tr style='background:#eee;'><th>銘柄</th><th>全体</th><th>3月限</th></tr>
         <tr><td>ラージ</td><td>{oi['large_all']}</td><td>{oi['large_mar']}</td></tr>
