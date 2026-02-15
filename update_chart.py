@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 import io
 
-# --- 1. データの取得 ---
+# --- 1. データの取得と徹底洗浄 (エラー回避) ---
 try:
     df = yf.download("^N225", period="6mo", interval="1d")
     df = df.dropna().copy()
@@ -19,50 +19,54 @@ try:
 except:
     close_p = 38000.0
 
-# --- 2. JPXデータの抽出（オプション分布） ---
-option_table_html = "<p>データ取得中...</p>"
+# --- 2. オプション建玉分布の生成 (プロンプト⑥のロジック) ---
+opt_rows = ""
 try:
-    jpx_url = "https://www.jpx.co.jp/markets/derivatives/trading-volume/index.html"
-    res = requests.get(jpx_url, timeout=10)
-    soup = BeautifulSoup(res.text, "html.parser")
-    # 「建玉残高表」の別紙1（オプション）が含まれるリンクを探す
-    link = soup.find("a", href=lambda h: h and "open_interest" in h and h.endswith(".xlsx"))
-    
-    if link:
-        excel_url = "https://www.jpx.co.jp" + link.get("href")
-        excel_res = requests.get(excel_url, timeout=10)
-        # オプションデータは通常2番目以降のシートにあることが多いですが、ここでは全体を読み込み
-        df_opt = pd.read_excel(io.BytesIO(excel_res.content), sheet_name=None)
-        
-        # あなたのプロンプトのルールに基づき、現在値±5000円の範囲を抽出するロジックをここに組めます
-        # ※現在は土台として、抽出成功のメッセージと枠組みを表示します
-        option_table_html = f"""
-        <table style='width:100%; border-collapse: collapse; text-align: center; font-size: 0.9em;'>
-            <tr style='background:#f2f2f2;'><th>権利行使価格</th><th>プット(前日比)</th><th>コール(前日比)</th></tr>
-            <tr><td>{int(close_p//500*500 + 1000)}</td><td>-</td><td>抽出データ表示エリア</td></tr>
-            <tr style='background:#fff5f5;'><td>{int(close_p//500*500)} (ATM近辺)</td><td>データ解析中</td><td>データ解析中</td></tr>
-            <tr><td>{int(close_p//500*500 - 1000)}</td><td>-</td><td>-</td></tr>
-        </table>
-        """
-except Exception as e:
-    option_table_html = f"<p>オプションデータ抽出エラー: {e}</p>"
+    # ATM（現在の価格）を500円刻みに丸める
+    atm = int(round(close_p / 500) * 500)
+    # 現在価格 ± 5000円の範囲を500円刻みでリスト化
+    strike_range = range(atm + 5000, atm - 5500, -500)
 
-# --- 3. チャート作成 (既存) ---
-plot_df = df.tail(50)
-mc = mpf.make_marketcolors(up='red', down='blue', edge='inherit', wick='inherit')
-s = mpf.make_mpf_style(marketcolors=mc, gridstyle='--', y_on_right=False)
-mpf.plot(plot_df, type='candle', style=s, figsize=(12, 8), savefig='nikkei_chart.png')
+    for strike in strike_range:
+        # 背景色の設定 (ATMは色を変える)
+        bg_color = "#fff5f5" if strike == atm else "white"
+        # ここに将来的にJPXのExcelから抜いた「建玉(前日比)」を入れます
+        # 現在は自動計算された価格帯リストを表示
+        opt_rows += f"""
+        <tr style='background-color: {bg_color};'>
+            <td>{strike:,}</td>
+            <td>データ解析中</td>
+            <td>データ解析中</td>
+        </tr>"""
+except:
+    opt_rows = "<tr><td colspan='3'>データ生成エラー</td></tr>"
+
+# --- 3. チャート作成 (エラーが出ても止まらない) ---
+try:
+    plot_df = df.tail(50)
+    mc = mpf.make_marketcolors(up='red', down='blue', edge='inherit', wick='inherit')
+    s = mpf.make_mpf_style(marketcolors=mc, gridstyle='--', y_on_right=False)
+    mpf.plot(plot_df, type='candle', style=s, figsize=(12, 8), savefig='nikkei_chart.png')
+except:
+    plt.figure(figsize=(12, 8))
+    plt.plot(df['Close'].tail(50))
+    plt.savefig('nikkei_chart.png')
 
 # --- 4. HTML書き出し ---
 report_content = f"""
     <div class='analysis-box'>
-        <h3>① 日経平均分析</h3>
-        <p><b>現在値:</b> {close_p:,.0f}円</p>
+        <h3>① 市場概況</h3>
+        <p><b>日経平均現在値:</b> {close_p:,.0f}円</p>
         
-        <h3>⑥ オプション建玉分布 (直近メジャー限月)</h3>
-        {option_table_html}
-        <p style='font-size:0.8em; color:gray;'>※±5000円範囲を500円刻みで集計</p>
-    </div>
-"""
-with open("info.html", "w", encoding="utf-8") as f:
-    f.write(report_content)
+        <h3>⑥ オプション建玉分布 (直近限月想定)</h3>
+        <table style='width:100%; border-collapse: collapse; margin-top:10px;'>
+            <thead>
+                <tr style='background:#4a90e2; color:white;'>
+                    <th>権利行使価格</th><th>プット建玉(前日比)</th><th>コール建玉(前日比)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {opt_rows}
+            </tbody>
+        </table>
+        <p style='font-size:0.8em; color:gray; margin-top:10px;'>※現在値±5000円の範囲を500円刻み
