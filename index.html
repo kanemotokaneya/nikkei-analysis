@@ -1,19 +1,32 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <title>日経先物分析サイト</title>
     <meta charset="utf-8">
+    <title>日経先物分析サイト</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        .price-info { font-size: 1.5em; color: #333; margin-bottom: 10px; }
+        body { font-family: sans-serif; margin: 30px; line-height: 1.6; background-color: #f4f4f4; }
+        .container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .analysis-box { background: #eef; padding: 15px; border-left: 5px solid #336; margin: 20px 0; }
+        img { max-width: 100%; height: auto; border: 1px solid #ccc; }
+        h1 { color: #333; }
+        .footer { font-size: 0.8em; color: gray; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>日経平均・最新チャート分析</h1>
-    <p>5日(青)、25日(橙)、75日(緑)の移動平均線を表示しています。</p>
-    
-    <img src="nikkei_chart.png" alt="Nikkei 225 Chart" style="max-width:100%; border: 1px solid #ddd;">
+    <div class="container">
+        <h1>日経平均・プロ向け分析レポート</h1>
+        
+        <div class="analysis-box">
+            <h3>① 日経平均・VI分析</h3>
+            <p>※以下の数値は最新データから自動計算されています。</p>
+            </div>
 
-    <p style="color: gray;">※データは1日1回、自動で更新されます。</p>
+        <img src="nikkei_chart.png" alt="最新ローソク足チャート">
+
+        <div class="footer">
+            更新日: <script>document.write(new Date().toLocaleDateString())</script> | 
+            データ元: Yahoo Finance, JPX
+        </div>
+    </div>
 </body>
 </html>
