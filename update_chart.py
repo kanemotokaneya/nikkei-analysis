@@ -4,34 +4,36 @@ import requests
 from bs4 import BeautifulSoup
 import io
 import numpy as np
+import datetime
 
-# --- 1. 日経平均株価を「株探」から直接取得 ---
-def get_nikkei_price():
+# --- 1. 日経平均株価をサイトから直接取得 ---
+def get_nikkei_realtime():
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
+        # 株探から最新値を抜き出す
         url = "https://kabutan.jp/stock/kabuexe?code=0000"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        res = requests.get(url, headers=headers)
+        res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
-        
-        # 株価・前日比を抽出
-        price_text = soup.find("span", class_="kabuka").text.replace(",", "").replace("円", "")
-        change_text = soup.find("dd", class_="zenjitsu_henka").text.replace(",", "").replace("円", "")
-        return float(price_text), float(change_text)
+        price = soup.find("span", class_="kabuka").text.replace(",", "").replace("円", "")
+        change = soup.find("dd", class_="zenjitsu_henka").text.replace(",", "").replace("円", "")
+        return float(price), float(change)
     except:
-        return 38000.0, 0.0 # 失敗時のダミー
+        return 38000.0, 0.0
 
-# --- 2. チャート用データをStooqのCSVから直接取得 ---
+# --- 2. チャートデータをCSV直リンクから取得 ---
 def get_chart_data():
     try:
-        # StooqのCSVダウンロードリンク（日経225）
+        # StooqのCSV配信（比較的安定しているリンク）
         url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
-        res = requests.get(url).content
+        res = requests.get(url, timeout=10).content
         df = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
-        return df.tail(100) # 直近100日分
+        # 列名が小文字の場合があるため補正
+        df.columns = [c.capitalize() for c in df.columns]
+        return df.tail(100)
     except:
         return pd.DataFrame()
 
-close_p, change_p = get_nikkei_price()
+close_p, change_p = get_nikkei_realtime()
 df = get_chart_data()
 
 # --- 3. JPXデータの抽出 ---
@@ -53,38 +55,42 @@ try:
 except:
     pass
 
-# --- 4. チャート作成（ライブラリ依存を減らす） ---
-plt.figure(figsize=(12, 8))
-if not df.empty:
-    # 5日・25日移動平均を計算
-    ma5 = df['Close'].rolling(window=5).mean()
-    ma25 = df['Close'].rolling(window=25).mean()
+# --- 4. チャート作成（標準ライブラリのみ使用） ---
+plt.figure(figsize=(12, 7))
+if not df.empty and 'Close' in df.columns:
+    # 移動平均線の計算
+    df['MA5'] = df['Close'].rolling(window=5).mean()
+    df['MA25'] = df['Close'].rolling(window=25).mean()
     
-    plt.plot(df.index, df['Close'], label='Close', color='#2c3e50', linewidth=2)
-    plt.plot(df.index, ma5, label='MA5', color='green', alpha=0.7)
-    plt.plot(df.index, ma25, label='MA25', color='orange', alpha=0.7)
+    plt.plot(df.index, df['Close'], label='Close', color='#1f77b4', linewidth=2)
+    plt.plot(df.index, df['MA5'], label='MA5(Green)', color='green', alpha=0.8)
+    plt.plot(df.index, df['MA25'], label='MA25(Orange)', color='orange', alpha=0.8)
     plt.fill_between(df.index, df['Low'], df['High'], color='gray', alpha=0.1)
-    plt.title("Nikkei 225 Market Overview")
-    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.title(f"Nikkei 225 Market Overview ({datetime.datetime.now().strftime('%Y-%m-%d')})")
+    plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend()
+else:
+    plt.text(0.5, 0.5, "Data Loading...", ha='center')
+
+plt.tight_layout()
 plt.savefig('nikkei_chart.png')
 
 # --- 5. HTML書き出し ---
 top_html = f"""
 <div class='analysis-box'>
     <h2 style='font-size:2.8em; margin:0;'>{close_p:,.0f}円</h2>
-    <p style='font-size:1.5em;'>前日比: <span style='color:{"red" if change_p >= 0 else "blue"}'>{change_p:+.0f}円</span></p>
+    <p style='font-size:1.5em; margin-top:5px;'>前日比: <span style='color:{"red" if change_p >= 0 else "blue"}'>{change_p:+.0f}円</span></p>
 </div>
 """
 with open("info.html", "w", encoding="utf-8") as f: f.write(top_html)
 
 detail_html = f"""
 <div class='analysis-box'>
-    <h3>先物建玉状況</h3>
+    <h3>■ 先物建玉状況（前日比）</h3>
     <table border='1' style='width:100%; border-collapse:collapse; text-align:center;'>
-        <tr style='background:#eee;'><th>銘柄</th><th>全体</th><th>3月限</th></tr>
-        <tr><td>ラージ</td><td>{oi['large_all']}</td><td>{oi['large_mar']}</td></tr>
-        <tr><td>mini</td><td>{oi['mini_all']}</td><td>{oi['mini_mar']}</td></tr>
+        <tr style='background:#f2f2f2;'><th>銘柄</th><th>全体</th><th>3月限</th></tr>
+        <tr><td>日経225(ラージ)</td><td>{oi['large_all']}</td><td>{oi['large_mar']}</td></tr>
+        <tr><td>日経225 mini</td><td>{oi['mini_all']}</td><td>{oi['mini_mar']}</td></tr>
         <tr><td>TOPIX</td><td>{oi['topix_all']}</td><td>{oi['topix_mar']}</td></tr>
     </table>
 </div>
