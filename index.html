@@ -2,35 +2,129 @@
 <html lang="ja">
 <head>
     <meta charset="utf-8">
-    <title>日経先物分析サイト</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>日経先物・オプション分析ボード</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 30px; background-color: #f0f2f5; color: #333; }
-        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .analysis-box { background: #f8f9ff; padding: 20px; border-left: 6px solid #4a90e2; margin: 20px 0; border-radius: 4px; }
-        h1 { border-bottom: 2px solid #4a90e2; padding-bottom: 10px; color: #2c3e50; }
-        h3 { color: #4a90e2; margin-top: 0; }
-        img { width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 20px; }
+        /* 全体のデザイン */
+        body { 
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f0f2f5; 
+            color: #333; 
+        }
+        .container { 
+            max-width: 1000px; 
+            margin: auto; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+        }
+
+        /* ヘッダー */
+        h1 { 
+            border-bottom: 3px solid #4a90e2; 
+            padding-bottom: 15px; 
+            color: #2c3e50; 
+            font-size: 1.8em;
+            text-align: center;
+        }
+        h3 { 
+            color: #4a90e2; 
+            border-left: 5px solid #4a90e2; 
+            padding-left: 10px; 
+            margin-top: 30px; 
+        }
+
+        /* 分析ボックスとテーブル */
+        .analysis-box { 
+            background: #f8f9ff; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px; 
+            background: white;
+            font-size: 0.95em;
+        }
+        th, td { 
+            border: 1px solid #dee2e6; 
+            padding: 12px; 
+            text-align: center; 
+        }
+        th { 
+            background-color: #4a90e2; 
+            color: white; 
+            font-weight: bold; 
+        }
+        tr:nth-child(even) { background-color: #f2f7ff; }
+        tr:hover { background-color: #e9ecef; }
+
+        /* チャート画像 */
+        .chart-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+        img { 
+            max-width: 100%; 
+            height: auto; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* フッター */
+        .footer { 
+            text-align: center; 
+            font-size: 0.8em; 
+            color: #7f8c8d; 
+            margin-top: 40px; 
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>日経平均・プロ向け分析レポート</h1>
         
-        <div id="report">データを読み込んでいます...</div>
-        
-        <img src="nikkei_chart.png" alt="最新ローソク足チャート">
+        <div id="report-content">
+            <p style="text-align:center;">データを読み込み中...</p>
+        </div>
 
-        <script>
-            // info.htmlの中身を読み込んで表示する
-            fetch('info.html')
-                .then(response => response.text())
-                .then(data => {
-                    document.getElementById('report').innerHTML = data;
-                })
-                .catch(err => {
-                    document.getElementById('report').innerHTML = "解析データの読み込みに失敗しました。";
-                });
-        </script>
+        <div class="chart-container">
+            <h3>テクニカル分析（ローソク足）</h3>
+            <img src="nikkei_chart.png" alt="最新チャート">
+        </div>
+
+        <div class="footer">
+            更新日時: <span id="last-update"></span><br>
+            データ提供元: 日本取引所グループ(JPX), Yahoo Finance<br>
+            目標: 資産1億円〜5億円の構築
+        </div>
     </div>
+
+    <script>
+        // info.html の中身を取得して表示する
+        fetch('info.html')
+            .then(response => {
+                if (!response.ok) throw new Error('File not found');
+                return response.text();
+            })
+            .then(data => {
+                document.getElementById('report-content').innerHTML = data;
+            })
+            .catch(err => {
+                document.getElementById('report-content').innerHTML = 
+                    "<div class='analysis-box'>解析データの取得に失敗しました。Actionsの実行完了を待つか、キャッシュをクリアしてください。</div>";
+            });
+
+        // 更新日時を表示
+        document.getElementById('last-update').innerText = new Date().toLocaleString('ja-JP');
+    </script>
 </body>
 </html>
