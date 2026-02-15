@@ -1,12 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <title>日経先物分析サイト</title>
     <meta charset="utf-8">
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .price-info { font-size: 1.5em; color: #333; margin-bottom: 10px; }
+    </style>
 </head>
 <body>
-    <h1>日経平均・最新チャート</h1>
-    <p>このチャートはGitHub Actionsで自動更新されます。</p>
-    <img src="nikkei_chart.png" alt="Nikkei 225 Chart" style="max-width:100%;">
+    <h1>日経平均・最新チャート分析</h1>
+    <p>5日(青)、25日(橙)、75日(緑)の移動平均線を表示しています。</p>
+    
+    <img src="nikkei_chart.png" alt="Nikkei 225 Chart" style="max-width:100%; border: 1px solid #ddd;">
+
+    <p style="color: gray;">※データは1日1回、自動で更新されます。</p>
 </body>
 </html>
