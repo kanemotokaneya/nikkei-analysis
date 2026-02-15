@@ -1,53 +1,40 @@
 import yfinance as yf
-import matplotlib.pyplot as plt
 import pandas as pd
+import matplotlib.pyplot as plt
+import mplfinance as mpf
+import numpy as np
+import datetime
 import requests
 from bs4 import BeautifulSoup
-import datetime
 import io
 
-# --- 1. 株価データの取得 ---
-ticker = "^N225"
-data = yf.download(ticker, period="1y", interval="1d")
-latest_price = float(data['Close'].iloc[-1])
+# --- 1. データの取得 ---
+# 日経平均(現物)と日経VI(現物指数)
+df = yf.download("^N225", period="6mo", interval="1d")
+df_vi = yf.download("^JNIV", period="1mo", interval="1d")
 
-# --- 2. JPXから建玉残高を取得 (pandas使用) ---
-oi_text = "取得失敗"
-try:
-    # JPXのサイトから最新ExcelのURLを特定
-    jpx_url = "https://www.jpx.co.jp/markets/derivatives/trading-volume/index.html"
-    res = requests.get(jpx_url)
-    soup = BeautifulSoup(res.text, "html.parser")
-    link = soup.find("a", string=lambda t: t and "建玉残高表" in t)
-    excel_url = "https://www.jpx.co.jp" + link.get("href")
-    
-    # Excelを読み込む
-    excel_res = requests.get(excel_url)
-    # pandasでExcelを読み込み（1つ目のシートを選択）
-    df = pd.read_excel(io.BytesIO(excel_res.content))
-    
-    # 「日経225先物」と「合計」が含まれる行を探して、建玉残高を抜く
-    # ※Excelの構成によって列の位置(11番目など)を調整
-    row = df[df.iloc[:, 1].astype(str).str.contains("日経225先物") & df.iloc[:, 2].astype(str).str.contains("合計")]
-    if not row.empty:
-        oi_value = row.iloc[0, 11] # 11番目の列に建玉があることが多い
-        oi_text = f"{int(oi_value):,}"
-except Exception as e:
-    print(f"Error: {e}")
-    oi_text = "更新待ち"
+# 最新値の抽出
+close_p = float(df['Close'].iloc[-1])
+yesterday_p = float(df['Close'].iloc[-2])
+vi_value = float(df_vi['Close'].iloc[-1])
 
-# --- 3. グラフの作成 ---
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), gridspec_kw={'height_ratios': [4, 1]})
+# --- 2. 予測値幅の計算 (ご提示のロジック) ---
+# 1日の予測値幅 = 現物終値 × (日経VI / 100) / √250
+daily_range = close_p * (vi_value / 100) / np.sqrt(250)
+# 1週間の予測値幅 = 現物終値 × (日経VI / 100) / √52
+weekly_range = close_p * (vi_value / 100) / np.sqrt(52)
 
-# 上段：チャート
-ax1.plot(data.tail(60).index, data['Close'].tail(60), color='black', label='Price')
-ax1.set_title(f"Nikkei 225 & Open Interest ({datetime.date.today()})")
-ax1.grid(True)
+# --- 3. ローソク足チャートの作成 ---
+plot_df = df.tail(50) # 直近50日
+mc = mpf.make_marketcolors(up='red', down='blue', edge='inherit', wick='inherit')
+s  = mpf.make_mpf_style(marketcolors=mc, gridstyle='--', y_on_right=False)
 
-# 下段：建玉情報の表示
-ax2.axis('off')
-ax2.text(0.5, 0.6, f"日経225先物 最新建玉残高 (JPX合計)", fontsize=14, ha='center')
-ax2.text(0.5, 0.3, f"{oi_text} 枚", fontsize=24, ha='center', color='blue', weight='bold')
+# 保存用
+mpf.plot(plot_df, type='candle', style=s, 
+         title=f"Nikkei 225 & Predictive Range (VI: {vi_value:.2f})",
+         ylabel='Price (JPY)',
+         figsize=(12, 8),
+         savefig='nikkei_chart.png')
 
-plt.tight_layout()
-plt.savefig("nikkei_chart.png")
+# --- 4. JPXデータの抽出 (将来の座標指定への土台) ---
+# ここに今後、プロンプトの②〜⑦の座標抽出コードを追加していきます。
