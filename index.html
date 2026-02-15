@@ -9,7 +9,7 @@
         nav { margin-bottom: 20px; border-bottom: 2px solid #4a90e2; padding-bottom: 10px; }
         nav a { margin-right: 15px; text-decoration: none; color: #4a90e2; font-weight: bold; }
         .analysis-box { background: #f8f9ff; padding: 15px; border-radius: 8px; }
-        img { width: 100%; border-radius: 8px; }
+        img { width: 100%; border-radius: 8px; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -19,11 +19,19 @@
             <a href="details.html">📊 先物・オプション詳細</a>
         </nav>
         <h1>日経平均マーケット概要</h1>
-        <div id="content">読み込み中...</div>
-        <img src="nikkei_chart.png">
+        <div id="content">最新データを取得中...</div>
+        <img id="chart-img" src="nikkei_chart.png">
     </div>
+
     <script>
-        fetch('info.html').then(r => r.text()).then(d => document.getElementById('content').innerHTML = d);
+        // ファイル名の後ろに時刻を付けて、ブラウザの古い記憶を無視させる
+        const timestamp = new Date().getTime();
+        
+        fetch(`info.html?v=${timestamp}`)
+            .then(r => r.text())
+            .then(d => document.getElementById('content').innerHTML = d);
+            
+        document.getElementById('chart-img').src = `nikkei_chart.png?v=${timestamp}`;
     </script>
 </body>
 </html>
