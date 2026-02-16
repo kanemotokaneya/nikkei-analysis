@@ -5,7 +5,7 @@ import io
 import re
 
 # スプレッドシートのURL
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uXxxC3untThuWdyCkIsDR8yc9X3JZF-00tvTkwNWDCE/pub?output=csv"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uXxxC3untThuWdyCkIsDR8yc9X3JZF-00tvTkwNWDCE/export?format=csv&gid=0"
 
 def clean_val(val):
     if pd.isna(val): return 0.0
