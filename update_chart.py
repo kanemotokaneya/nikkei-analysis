@@ -5,7 +5,7 @@ import io
 
 def update_market_board():
     try:
-        # 1. 外部サイト(Stooq)から日経平均の履歴を直接取得
+        # 1. 外部サイトから日経平均の履歴を直接取得
         url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
         res = requests.get(url, timeout=15).content
         df = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
