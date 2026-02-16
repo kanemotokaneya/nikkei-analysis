@@ -2,52 +2,41 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import requests
 import io
-import numpy as np
+import re
 
-# --- 1. スプレッドシート（Google経由）から価格を取得 ---
+# スプレッドシートのCSV URL
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uXxxC3untThuWdyCkIsDR8yc9X3JZF-00tvTkwNWDCE/pub?output=csv"
+
+def clean_value(val):
+    """どんな形式のセルデータも数値に変換する"""
+    if pd.isna(val): return 0.0
+    cleaned = re.sub(r'[^0-9.\-]', '', str(val))
+    try:
+        return float(cleaned)
+    except:
+        return 0.0
 
 def get_stable_data():
     try:
-        # スプレッドシートから現在値と前日比を読み込む
         df_sheet = pd.read_csv(SHEET_CSV_URL, header=None)
-        # スプレッドシートのA1に現在値、B1に前日比(%)が入っている想定
-        price = float(df_sheet.iloc[0, 0])
-        change_pct = float(df_sheet.iloc[0, 1])
-        change_abs = price * change_pct
-        return price, change_abs
-    except Exception as e:
-        print(f"Sheet Error: {e}")
-        return 38000.0, 0.0
-
-# --- 2. チャートデータ取得 ---
-def get_chart_data():
-    try:
-        url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
-        res = requests.get(url, timeout=15).content
-        df = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
-        df.columns = [c.capitalize() for c in df.columns]
-        return df.tail(100)
+        # A1: 現在値, B1: 前日比
+        price = clean_value(df_sheet.iloc[0, 0])
+        change = clean_value(df_sheet.iloc[0, 1])
+        
+        # B1がパーセント（0.01など1未満）の場合、絶対額に変換
+        if abs(change) < 1 and change != 0:
+            change_abs = price * change
+            change_pct = change
+        else:
+            change_abs = change
+            change_pct = (change / (price - change)) if (price - change) != 0 else 0
+            
+        return price, change_abs, change_pct
     except:
-        return pd.DataFrame()
+        return 0.0, 0.0, 0.0
 
-close_p, change_p = get_stable_data()
-df = get_chart_data()
+close_p, change_abs, change_pct = get_stable_data()
 
-# --- 3. チャート作成 ---
-plt.figure(figsize=(12, 7))
-if not df.empty:
-    plt.plot(df.index, df['Close'], color='#1f77b4', linewidth=2)
-    plt.title("Market Overview")
-    plt.grid(True, linestyle=':', alpha=0.6)
-plt.tight_layout()
-plt.savefig('nikkei_chart.png')
-
-# --- 4. HTML書き出し ---
-top_html = f"""
-<div class='analysis-box'>
-    <h2 style='font-size:2.8em; margin:0;'>{close_p:,.0f}円</h2>
-    <p style='font-size:1.5em; margin-top:5px;'>前日比: <span style='color:{"red" if change_p >= 0 else "blue"}'>{change_p:+.0f}円</span></p>
-</div>
-"""
-with open("info.html", "w", encoding="utf-8") as f: f.write(top_html)
+# --- 2. チャート作成 (安定ソース Stooq) ---
+try:
+    url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
