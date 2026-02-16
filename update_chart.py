@@ -52,3 +52,9 @@ def update_market_board():
         """
         with open("info.html", "w", encoding="utf-8") as f:
             f.write(html)
+            
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    update_market_board()
