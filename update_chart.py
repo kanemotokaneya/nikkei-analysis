@@ -5,7 +5,7 @@ import io
 
 def update_market_board():
     try:
-        # 1. 外部サイト(Stooq)からデータを直接取得
+        # 1. 外部サイト(Stooq)から日経平均の履歴を直接取得
         url = "https://stooq.com/q/d/l/?s=^ni225&i=d"
         res = requests.get(url, timeout=15).content
         df = pd.read_csv(io.StringIO(res.decode("utf-8")), index_col=0, parse_dates=True)
@@ -24,7 +24,7 @@ def update_market_board():
         
         # 3. チャート画像(nikkei_chart.png)の作成
         plt.figure(figsize=(10, 6))
-        plot_df = df.tail(60)
+        plot_df = df.tail(60) # 直近2ヶ月分
         plt.plot(plot_df.index, plot_df['Close'], label='価格', color='#1f77b4', linewidth=2)
         plt.plot(plot_df.index, plot_df['MA5'], label='5日線', color='green', linestyle='--')
         plt.plot(plot_df.index, plot_df['MA25'], label='25日線', color='orange', linestyle='--')
@@ -52,9 +52,3 @@ def update_market_board():
         """
         with open("info.html", "w", encoding="utf-8") as f:
             f.write(html)
-            
-    except Exception as e:
-        print(f"Error: {e}")
-
-if __name__ == "__main__":
-    update_market_board()
